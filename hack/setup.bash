@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-log() { echo ">>> $@"; }
+set -euo pipefail
+
+log() { echo ">>> $*"; }
 die() { log "$@"; exit 1; }
 cd "$(dirname $0)/.."
 source ".env"
@@ -45,7 +47,7 @@ checkout_increment() {
 }
 
 checkout_kube_baseline() {
-    local kube_baseline="$1"
+    local kube_baseline="${1:-}"
     if [[ -z "$kube_baseline" ]]; then
         die "Usage: $0 <kube_baseline>"
     fi
@@ -61,7 +63,7 @@ checkout_kube_baseline() {
 }
 
 checkout_kcp_baseline() {
-    local kube_baseline="$1"
+    local kube_baseline="${1:-}"
     if [[ -z "$kube_baseline" ]]; then
         die "Usage: $0 <kube_baseline>"
     fi

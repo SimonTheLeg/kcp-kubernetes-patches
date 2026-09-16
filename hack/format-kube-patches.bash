@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
-log() { echo ">>> $@"; }
+set -euo pipefail
+
+log() { echo ">>> $*"; }
 die() { log "$@"; exit 1; }
 cd "$(dirname $0)/.."
 source ./hack/lib.bash
 
 format_patches() {
-    local base_ref="$1"
+    local base_ref="${1:-}"
     if [[ -z "$base_ref" ]]; then
         die "Usage: format_patches <ref>"
     fi
