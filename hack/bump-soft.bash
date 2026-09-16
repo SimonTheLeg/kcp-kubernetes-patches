@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 
-log() { echo ">>> $@"; }
+set -euo pipefail
+
+log() { echo ">>> $*"; }
 die() { log "$@"; exit 1; }
 cd "$(dirname $0)/.."
 source .env
 
 bump_gomod() {
-    local target_dir="$1"
-    local kube_baseline="$2"
+    local target_dir="${1:-}"
+    local kube_baseline="${2:-}"
     shift 2
 
     if [[ -z "$target_dir" ]] || [[ -z "$kube_baseline" ]]; then
