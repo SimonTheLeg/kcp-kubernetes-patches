@@ -128,8 +128,6 @@ Proceed as for reflector and check if `scoped_shared_informer.go` needs updates.
 
 ### code-generator
 
-Repeat for `examples/go.mod`.
-
 Manually review upstream to check for any changes to these generators in the
 kubernetes repository:
 
