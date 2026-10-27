@@ -7,14 +7,31 @@ die() { log "$@"; exit 1; }
 cd "$(dirname $0)/.."
 source ".env"
 
+# because git by default does not differentiate for tags from which remote they come from
+# and we have the same tag names on both remotes, we explicitly fetch them into their remote namespaces.
+# This allows us to address them via <remote>/<tag>, e.g. kcp-dev/v1.36.0 or kubernetes/v1.36.0.
+# This is safe, as we don't have any overlapping tag and branch names, plus the fetch would fail if that
+# ever becomes the case.
+configure_remote_tags() {
+    local remote="$1"
+    local refspec="+refs/tags/*:refs/remotes/$remote/*"
+
+    git config "remote.$remote.tagOpt" --no-tags
+    if ! git config --get-all "remote.$remote.fetch" | grep -qF "$refspec"; then
+        git config --add "remote.$remote.fetch" "$refspec"
+    fi
+}
+
 clone_kube() {
-    [[ -d ./kubernetes ]] || git clone --origin kubernetes https://github.com/kubernetes/kubernetes
+    [[ -d ./kubernetes ]] || git clone --origin kubernetes --no-tags https://github.com/kubernetes/kubernetes
     (
         cd kubernetes
         if ! git remote show kcp-dev &>/dev/null; then
             git remote add kcp-dev https://github.com/kcp-dev/kubernetes
         fi
-        git remote update
+        configure_remote_tags kubernetes
+        configure_remote_tags kcp-dev
+        git fetch --all
     )
 }
 
@@ -22,7 +39,7 @@ clone_kcp() {
     [[ -d ./kcp ]] || git clone --origin kcp-dev https://github.com/kcp-dev/kcp
     (
         cd kcp
-        git remote update
+        git fetch --all
     )
 }
 
@@ -43,7 +60,9 @@ checkout_increment() {
         checkout_increment "$baseline" "$branch_prefix" "$(( $increment + 1 ))"
         return
     fi
-    git checkout -b "$branch" "$baseline"
+    # we need --no-track here, because git sets up auto-tracking if tags
+    # are in different namespaces than default <insert-rolling-eyes-emoji>
+    git checkout --no-track -b "$branch" "$baseline"
 }
 
 checkout_kube_baseline() {
@@ -58,7 +77,7 @@ checkout_kube_baseline() {
     (
         cd kubernetes
         git checkout master
-        checkout_increment "v$kube_baseline" "$branch" 0
+        checkout_increment "kubernetes/v$kube_baseline" "$branch" 0
     )
 }
 
