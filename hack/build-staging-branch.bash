@@ -12,11 +12,13 @@ cd "$(dirname $0)/.."
 source .env
 
 IGNORE_DIRTY_PR="${IGNORE_DIRTY_PR:-false}"
+ENABLE_SQUASH="${ENABLE_SQUASH:-true}"
 
+# in dependency order
 soft_fork_dirs=(
     staging/src/github.com/kcp-dev/apimachinery
-    staging/src/github.com/kcp-dev/client-go
     staging/src/github.com/kcp-dev/code-generator
+    staging/src/github.com/kcp-dev/client-go
 )
 soft_fork_pattern='^staging/src/github.com/kcp-dev/(apimachinery|client-go|code-generator)/'
 
@@ -24,6 +26,9 @@ kcp_remote="kcp-dev"
 base_ref="${kcp_remote}/main"
 source_branch="${1:-kube-rebase-${NEW_KUBE_TAG}}"
 output_branch="${source_branch}-staging"
+if [[ "$ENABLE_SQUASH" == "true" ]]; then
+    output_branch="${output_branch}-squashed"
+fi
 
 worktree=""
 cleanup() {
@@ -76,6 +81,29 @@ if ! git -C "$worktree" cherry-pick --quiet $commits >/dev/null; then
     die "Cherry-pick onto $base_ref failed, rebase '$source_branch' onto $base_ref and retry"
 fi
 
+if [[ "$ENABLE_SQUASH" == "true" ]]; then
+    log "Squashing into one commit per soft fork module"
+    # Unstage everything down to the base and re-commit it module by module.
+    # The tree stays identical, only the history changes.
+    git -C "$worktree" reset -q --mixed "$base_ref"
+    for dir in "${soft_fork_dirs[@]}"; do
+        [[ -n "$(git -C "$worktree" status --porcelain -- "$dir")" ]] || continue
+        module="$(basename "$dir")"
+        subjects=$(git -C kcp log --reverse --format="- %s" "$base_ref..$source_branch" -- "$dir")
+        git -C "$worktree" add -A -- "$dir"
+        # generate into the commit message, which commits got squashed into this one
+        printf 'Bump %s to Kubernetes v%s\n\nSquashed into one commit per staging module so that the publishing bot\ncan run go mod tidy on every published commit on its own:\n\n%s\n' \
+            "$module" "$NEW_KUBE_TAG" "$subjects" | git -C "$worktree" commit -q -F -
+        git -C "$worktree" --no-pager log -1 --format="    %h %s"
+    done
+    # Leftovers are outside the modules and only exist with IGNORE_DIRTY_PR=true.
+    if [[ -n "$(git -C "$worktree" status --porcelain)" ]]; then
+        git -C "$worktree" add -A
+        git -C "$worktree" commit -q -m "Changes outside the soft fork modules"
+        git -C "$worktree" --no-pager log -1 --format="    %h %s"
+    fi
+fi
+
 # Final gate: the diff against the base must be confined to the modules.
 if git -C "$worktree" diff --name-only "$base_ref" HEAD | grep -qvE "$soft_fork_pattern"; then
     if [[ "$IGNORE_DIRTY_PR" == "true" ]]; then
@@ -86,7 +114,6 @@ if git -C "$worktree" diff --name-only "$base_ref" HEAD | grep -qvE "$soft_fork_
 fi
 
 git -C kcp branch --force "$output_branch" "$(git -C "$worktree" rev-parse HEAD)"
-log "Built $output_branch ($(echo "$commits" | wc -l | tr -d ' ') commits on top of $base_ref)"
 
 fork_owner="$(basename "$(dirname "${fork_url%.git}")")"
 fork_owner="${fork_owner##*:}"
