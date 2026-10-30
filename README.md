@@ -394,6 +394,16 @@ GITHUB_USER=<user> GITHUB_REPO=kubernetes BRANCH=<your branch> ./hack/bump-k8s.s
 If that fails upstream probably added a new staging repository. Compare
 the replacements in the go.mod with the directories in the staging dir.
 
+After the kcp-dev/kubernetes PR was merged update the kcp-dev/kcp PR to
+point to the new branch:
+
+```bash
+cd kcp/
+GITHUB_USER=kcp-dev GITHUB_REPO=kubernetes BRANCH=kcp-$NEW_KUBE_TAG BUMP_STAGING_MODULES=true ./hack/bump-k8s.sh
+```
+
+Then the PR in kcp-dev/kcp can be merged.
+
 ## Re-exporting patches after conflict resolution
 
 Once all patches apply cleanly on the new base tag, re-export them to update
