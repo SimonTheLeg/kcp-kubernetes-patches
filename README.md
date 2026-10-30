@@ -391,6 +391,10 @@ cd kcp/
 GITHUB_USER=<user> GITHUB_REPO=kubernetes BRANCH=<your branch> ./hack/bump-k8s.sh
 ```
 
+And bump the `k8s.io/kubernetes` line in the `go.mod` to the new version.
+
+<!-- TODO(ntnn): Could include this in bump-k8s.sh by accepting a KUBE_VERSION env var or similar -->
+
 If that fails upstream probably added a new staging repository. Compare
 the replacements in the go.mod with the directories in the staging dir.
 
