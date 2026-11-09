@@ -384,15 +384,27 @@ And then push this to your fork and create a PR in kcp-dev/kubernetes.
 ### kcp-dev/kcp
 
 While the kcp-dev/kubernetes PR is up go ahead and update the kcp branch
-to use the updated kubernetes fork:
+to use the updated kubernetes fork. `BUMP_STAGING_MODULES=true` is required
+here because the staging module replacements are pinned to a kcp-dev commit
+that does not exist in your fork:
 
 ```bash
 cd kcp/
-GITHUB_USER=<user> GITHUB_REPO=kubernetes BRANCH=<your branch> ./hack/bump-k8s.sh
+BUMP_STAGING_MODULES=true GITHUB_USER=<user> GITHUB_REPO=<your-kubernetes-fork-repo-name> BRANCH=kcp-$NEW_KUBE_1_TAG ./hack/bump-k8s.sh
 ```
 
-If that fails upstream probably added a new staging repository. Compare
-the replacements in the go.mod with the directories in the staging dir.
+And open up a PR for review by maintainers. Put a `/hold` marker on it so it does not get merged
+once its approved. For this PR now all CI steps except the `*-verify` ones are expected to pass.
+
+### Finalizing PR
+
+Once the kcp-dev/kubernetes PR is merged, point your local kcp to the freshly merged version and
+do a last push on your PR. Remove the `/hold` label and ask maintainers for a final review.
+
+```bash
+cd kcp/
+GITHUB_USER=kcp-dev GITHUB_REPO=kubernetes BRANCH=kcp-$NEW_KUBE_1_TAG ./hack/bump-k8s.sh
+```
 
 ## Re-exporting patches after conflict resolution
 
